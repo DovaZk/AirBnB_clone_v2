@@ -1,54 +1,51 @@
 #!/usr/bin/python3
-
-'''
-Configure the server
-'''
-
+""" Pack web static """
+from fabric.api import *
+from os import path
 from datetime import datetime
-from fabric.api import put, run, env, local
-from os.path import exists, isdir
 
 
-env.hosts = ['34.138.89.43', '54.90.156.100']
+env.hosts = ["34.139.1.80", "34.75.176.177"]
+
+
+def deploy():
+    """Creates and distributes an archive to your web servers"""
+    route = do_pack()
+    if route is False:
+        return False
+    val = do_deploy(route)
+    return val
 
 
 def do_pack():
-    '''generate a tgz archive'''
-    try:
-        date = datetime.now().strftime('%Y%m%d%H%M%S')
-        if isdir('versions') is False:
-            local('mkdir versions')
-        file_name = 'versions/web_static_{}.tgz'.format(date)
-        local('tar -cvzf {} web_static'.format(file_name))
-        return file_name
-    except:
+    """ Fabric script that generates a .tgz archive """
+    local("mkdir -p versions")
+    format_time = datetime.now().strftime("%Y%m%d%H%M%S")
+    new_file = local(
+        "tar -cvzf versions/web_static_{}.tgz web_static".format(format_time))
+    if new_file.succeeded:
+        return "versions/web_static_{}.tgz".format(format_time)
+    else:
         return None
 
 
 def do_deploy(archive_path):
-    '''distributes an archive to the web servers'''
-    if exists(archive_path) is False:
+    """distributes an archive to your web servers"""
+    if not path.exists(archive_path):
         return False
     try:
-        file_n = archive_path.split('/')[-1]
-        no_ext = file_n.split('.')[0]
-        path = '/data/web_static/releases/'
-        put(archive_path, '/tmp/')
-        run('mkdir -p {}{}/'.format(path, no_ext))
-        run('tar -xzf /tmp/{} -C {}{}/'.format(file_n, path, no_ext))
-        run('rm /tmp/{}'.format(file_n))
-        run('mv {1}{0}/web_static/* {0}{1}/'.format(path, no_ext))
-        run('rm -rf {}{}/web_static'.format(path, no_ext))
-        run('rm -rf /data/web_static/current')
-        run('ln -s {}{}/ /data/web_static/current'.format(path, no_ext))
+        dire = "data/web_static/releases"
+        file_name = archive_path.split('/')[-1]
+        wext = file_name.split('.')[0]
+        put(archive_path, "/tmp/{}".format(file_name))
+        run("mkdir -p mkdir -p /{}/{}".format(dire, wext))
+        run("tar -xzf /tmp/{} -C /{}/{}/".format(file_name, dire, wext))
+        run("rm /tmp/{}".format(file_name))
+        run("mv /{}/{}/web_static/* /{}/{}/".format(dire, wext, dire, wext))
+        run("rm -rf /{}/{}/web_static".format(dire, wext))
+        run("rm -rf /data/web_static/current")
+        run("ln -s /{}/{}/ /data/web_static/current".format(dire, wext))
         return True
-    except:
-        return False
 
-
-def deploy():
-    '''send an archive to the servers'''
-    archive_path = do_pack()
-    if archive_path is None:
+    except Exception:
         return False
-    return do_deploy(archive_path)
